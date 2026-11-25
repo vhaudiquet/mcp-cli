@@ -85,17 +85,24 @@ async fn run() -> i32 {
     if verb == "list" || verb == "servers" {
         return list(&config, &rest[1..]);
     }
+    if verb == "prompt" {
+        return prompt(&config);
+    }
     server_mode(&config, &verb, &rest[1..]).await
 }
 
 fn print_usage() {
     println!(
         "usage: mcp [--config PATH] list\n\
+         \x20      mcp [--config PATH] list --json\n\
+         \x20      mcp [--config PATH] prompt\n\
          \x20      mcp [--config PATH] <server> [--list] [--schema TOOL]\n\
          \x20      mcp [--config PATH] <server> <tool> [flags...] [--json JSON|-]\n\
          \n\
          \x20--config PATH   the server config (default: $MCP_CONFIG, ./mcp.json,\n\
-         \x20                $XDG_CONFIG_HOME/mcp/config.json)\n\
+         \x20                ./.mcp.json, $XDG_CONFIG_HOME/mcp/config.json)\n\
+         \x20list              the configured servers, one per line\n\
+         \x20prompt            the system-prompt section, ready to embed\n\
          \x20<server> --list  the server's tools as JSON\n\
          \x20<server> --help  the generated commands\n\
          \x20--json JSON      the argument object verbatim; `-` reads stdin"
@@ -103,27 +110,75 @@ fn print_usage() {
 }
 
 fn list(config: &Config, rest: &[String]) -> i32 {
-    let _ = rest;
-    let servers: Vec<Value> = config
+    if rest.iter().any(|arg| arg == "--json") {
+        let servers: Vec<Value> = config
+            .servers
+            .iter()
+            .map(|(name, server)| {
+                let transport = match (&server.launch(), server.description.as_deref()) {
+                    (Ok(Launch::Stdio { .. }), _) => "stdio",
+                    (Ok(Launch::Http { .. }), _) => "http",
+                    (Err(_), _) => "invalid",
+                };
+                json!({
+                    "name": name,
+                    "transport": transport,
+                    "description": server.description,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&servers).unwrap_or_else(|_| "[]".to_owned())
+        );
+    } else {
+        for line in list_lines(config) {
+            println!("{line}");
+        }
+    }
+    0
+}
+
+/// One line per configured server: `name: description`, or the launch
+/// error when the entry cannot start. This is the list the prompt
+/// embeds, and the same text `mcp list` prints.
+fn list_lines(config: &Config) -> Vec<String> {
+    config
         .servers
         .iter()
         .map(|(name, server)| {
-            let transport = match (&server.launch(), server.description.as_deref()) {
-                (Ok(Launch::Stdio { .. }), _) => "stdio",
-                (Ok(Launch::Http { .. }), _) => "http",
-                (Err(_), _) => "invalid",
-            };
-            json!({
-                "name": name,
-                "transport": transport,
-                "description": server.description,
-            })
+            let description = server
+                .description
+                .as_deref()
+                .unwrap_or("")
+                .replace('\n', " ");
+            match server.launch() {
+                Ok(_) if description.is_empty() => name.clone(),
+                Ok(_) => format!("{name}: {description}"),
+                Err(err) => format!("{name}: invalid: {err}"),
+            }
         })
-        .collect();
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&servers).unwrap_or_else(|_| "[]".to_owned())
-    );
+        .collect()
+}
+
+fn prompt(config: &Config) -> i32 {
+    let lines = list_lines(config);
+    if lines.is_empty() {
+        return 0;
+    }
+    println!("MCP servers installed in this sandbox:");
+    for line in lines {
+        println!("- {line}");
+    }
+    println!();
+    println!("MCP servers are bash commands, not direct tool calls:");
+    println!("    mcp <server> --list");
+    println!("    mcp <server> <tool> --help");
+    println!("    mcp <server> <tool> --schema");
+    println!("    mcp <server> <tool> --flag value");
+    println!("    mcp <server> <tool> --json - <<'EOF' ... EOF");
+    println!();
+    println!("Run `mcp list` to see this list again.");
     0
 }
 

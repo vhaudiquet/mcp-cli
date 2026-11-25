@@ -3,11 +3,18 @@
 A standalone MCP client. Configured servers become shell commands:
 
 ```sh
-mcp --config ./mcp.json list
-mcp --config ./mcp.json blender --list
-mcp --config ./mcp.json blender get_scene_info --query chair
-mcp --config ./mcp.json blender execute_blender_code --code 'print("hi")'
+mcp list
+mcp prompt
+mcp blender --list
+mcp blender --schema get_scene_info
+mcp blender get_scene_info --query chair
+mcp blender execute_blender_code --json '{"code":"print(1)"}'
 ```
+
+`mcp list` prints one line per server, `name: description`. `mcp
+prompt` prints the system-prompt section around that list, so a
+frontend embeds the installed servers and the usage without knowing
+the config format. `mcp list --json` is the machine-readable form.
 
 A stdio entry is a child this process starts. An HTTP entry is a
 Streamable HTTP endpoint. The client speaks the MCP subset
@@ -44,12 +51,15 @@ top-level object may also be the flat server map, or Claude's
 `mcpServers` object.
 
 The path comes from `--config`, then `$MCP_CONFIG`, then `./mcp.json`,
-then `$XDG_CONFIG_HOME/mcp/config.json`.
+then `./.mcp.json`, then `$XDG_CONFIG_HOME/mcp/config.json`. The
+config lives with the sandbox or workspace; the host does not have to
+own it.
 
 ## Surface
 
 ```
-mcp [--config PATH] list
+mcp [--config PATH] list [--json]
+mcp [--config PATH] prompt
 mcp [--config PATH] <server> [--list] [--schema TOOL]
 mcp [--config PATH] <server> <tool> [flags...] [--json JSON|-]
 ```
@@ -88,6 +98,6 @@ the transport.
 ## Releases
 
 Tags `v*` build `mcp_<version>_<os>_<arch>.tar.gz` for Linux
-amd64/arm64, macOS amd64/arm64, and Windows amd64, with a
+amd64/arm64/riscv64, macOS amd64/arm64, and Windows amd64, with a
 `checksums.txt`. The rhema installer downloads these assets beside
 `rhema` and `gob`.

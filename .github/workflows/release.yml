@@ -20,6 +20,10 @@ jobs:
             target: aarch64-unknown-linux-gnu
             asset: linux_arm64
             cross: true
+          - os: ubuntu-latest
+            target: riscv64gc-unknown-linux-gnu
+            asset: linux_riscv64
+            cross: true
           - os: macos-13
             target: x86_64-apple-darwin
             asset: darwin_amd64

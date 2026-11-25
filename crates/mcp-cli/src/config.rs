@@ -153,9 +153,11 @@ impl Config {
         if let Some(path) = std::env::var_os("MCP_CONFIG") {
             return Ok(path.into());
         }
-        let local = PathBuf::from("mcp.json");
-        if local.is_file() {
-            return Ok(local);
+        for name in ["mcp.json", ".mcp.json"] {
+            let local = PathBuf::from(name);
+            if local.is_file() {
+                return Ok(local);
+            }
         }
         let base = std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from)
