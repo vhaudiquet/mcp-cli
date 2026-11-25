@@ -82,11 +82,12 @@ async fn run() -> i32 {
     for notice in &config.notices {
         eprintln!("mcp: {notice}");
     }
+    let disabled = disabled_names();
     if verb == "list" || verb == "servers" {
-        return list(&config, &rest[1..]);
+        return list(&config, &rest[1..], &disabled);
     }
     if verb == "prompt" {
-        return prompt(&config);
+        return prompt(&config, &disabled);
     }
     server_mode(&config, &verb, &rest[1..]).await
 }
@@ -109,11 +110,24 @@ fn print_usage() {
     );
 }
 
-fn list(config: &Config, rest: &[String]) -> i32 {
+/// The names a frontend muted for this session, comma- or
+/// whitespace-separated in `$MCP_DISABLED`.
+fn disabled_names() -> std::collections::BTreeSet<String> {
+    std::env::var("MCP_DISABLED")
+        .unwrap_or_default()
+        .split([',', ' ', '\t', '\n'])
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+fn list(config: &Config, rest: &[String], disabled: &std::collections::BTreeSet<String>) -> i32 {
     if rest.iter().any(|arg| arg == "--json") {
         let servers: Vec<Value> = config
             .servers
             .iter()
+            .filter(|(name, _)| !disabled.contains(*name))
             .map(|(name, server)| {
                 let transport = match (&server.launch(), server.description.as_deref()) {
                     (Ok(Launch::Stdio { .. }), _) => "stdio",
@@ -132,7 +146,7 @@ fn list(config: &Config, rest: &[String]) -> i32 {
             serde_json::to_string_pretty(&servers).unwrap_or_else(|_| "[]".to_owned())
         );
     } else {
-        for line in list_lines(config) {
+        for line in list_lines(config, disabled) {
             println!("{line}");
         }
     }
@@ -142,10 +156,11 @@ fn list(config: &Config, rest: &[String]) -> i32 {
 /// One line per configured server: `name: description`, or the launch
 /// error when the entry cannot start. This is the list the prompt
 /// embeds, and the same text `mcp list` prints.
-fn list_lines(config: &Config) -> Vec<String> {
+fn list_lines(config: &Config, disabled: &std::collections::BTreeSet<String>) -> Vec<String> {
     config
         .servers
         .iter()
+        .filter(|(name, _)| !disabled.contains(*name))
         .map(|(name, server)| {
             let description = server
                 .description
@@ -161,8 +176,8 @@ fn list_lines(config: &Config) -> Vec<String> {
         .collect()
 }
 
-fn prompt(config: &Config) -> i32 {
-    let lines = list_lines(config);
+fn prompt(config: &Config, disabled: &std::collections::BTreeSet<String>) -> i32 {
+    let lines = list_lines(config, disabled);
     if lines.is_empty() {
         return 0;
     }
@@ -374,7 +389,8 @@ fn stage_media(envelope: &mut Value) {
     let Some(content) = envelope.get_mut("content").and_then(Value::as_array_mut) else {
         return;
     };
-    let dir = std::env::var_os("MCP_MEDIA_DIR").map(PathBuf::from);
+    let dir = std::env::var_os("MCP_MEDIA_DIR")
+        .map(|dir| crate::config::expand_home(&dir.to_string_lossy()));
     for block in content.iter_mut() {
         let kind = block.get("type").and_then(Value::as_str).unwrap_or("");
         if kind != "image" && kind != "audio" {

@@ -148,10 +148,10 @@ impl Config {
     /// the XDG config dir. A missing file is an empty config.
     pub fn discover(explicit: Option<&Path>) -> Result<PathBuf, String> {
         if let Some(path) = explicit {
-            return Ok(path.to_path_buf());
+            return Ok(expand_home(&path.to_string_lossy()));
         }
         if let Some(path) = std::env::var_os("MCP_CONFIG") {
-            return Ok(path.into());
+            return Ok(expand_home(&path.to_string_lossy()));
         }
         for name in ["mcp.json", ".mcp.json"] {
             let local = PathBuf::from(name);
@@ -165,6 +165,26 @@ impl Config {
             .ok_or_else(|| "no config path: set --config, MCP_CONFIG, or HOME".to_owned())?;
         Ok(base.join("mcp").join("config.json"))
     }
+}
+
+/// Expands `~` and `$HOME` in a path. The sandbox reports the config
+/// and media paths with `$HOME`, which bash would expand; a path the
+/// CLI reads directly has to expand it too.
+pub fn expand_home(raw: &str) -> PathBuf {
+    let Some(home) = std::env::var_os("HOME") else {
+        return PathBuf::from(raw);
+    };
+    let home = PathBuf::from(home);
+    if raw == "~" {
+        return home;
+    }
+    if let Some(rest) = raw.strip_prefix("~/") {
+        return home.join(rest);
+    }
+    PathBuf::from(
+        raw.replace("${HOME}", &home.to_string_lossy())
+            .replace("$HOME", &home.to_string_lossy()),
+    )
 }
 
 /// The server map: `{"servers": {...}}`, Claude's `{"mcpServers":
