@@ -24,10 +24,12 @@ jobs:
             target: riscv64gc-unknown-linux-gnu
             asset: linux_riscv64
             cross: true
-          - os: macos-13
+          # GitHub retired the macOS 13 and 14 images. Build both
+          # arches on the arm64 macOS 15 image.
+          - os: macos-15
             target: x86_64-apple-darwin
             asset: darwin_amd64
-          - os: macos-14
+          - os: macos-15
             target: aarch64-apple-darwin
             asset: darwin_arm64
           - os: windows-latest
