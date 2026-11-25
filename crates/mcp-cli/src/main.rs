@@ -16,9 +16,11 @@ use std::io::Read as _;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use mcp_cli::client::{Cancel, Client, ClientError, HttpParams, StdioParams};
 use config::{Config, Launch};
-use mcp_to_cli::{Payload, ToolInfo, args as map_args, command as build_command, list_json, schema_of};
+use mcp_cli::client::{Cancel, Client, ClientError, HttpParams, StdioParams};
+use mcp_to_cli::{
+    Payload, ToolInfo, args as map_args, command as build_command, list_json, schema_of,
+};
 use serde_json::{Value, json};
 
 /// The startup budget for a server.
@@ -46,6 +48,10 @@ async fn run() -> i32 {
             },
             "-h" | "--help" => {
                 print_usage();
+                return 0;
+            }
+            "-V" | "--version" => {
+                println!("mcp-cli {}", env!("CARGO_PKG_VERSION"));
                 return 0;
             }
             _ => {
@@ -133,7 +139,7 @@ async fn server_mode(config: &Config, server: &str, rest: &[String]) -> i32 {
             return 2;
         }
     };
-    let mut connection = match connect(launch).await {
+    let connection = match connect(launch).await {
         Ok(client) => client,
         Err(err) => {
             eprintln!("mcp: {server}: {err}");
@@ -157,7 +163,9 @@ async fn server_mode(config: &Config, server: &str, rest: &[String]) -> i32 {
         })
         .collect();
 
-    let wants_list = rest.first().is_some_and(|arg| arg == "--list" || arg == "list");
+    let wants_list = rest
+        .first()
+        .is_some_and(|arg| arg == "--list" || arg == "list");
     let wants_schema = rest.first().is_some_and(|arg| arg == "--schema");
     if wants_list || rest.is_empty() {
         println!(
@@ -241,7 +249,10 @@ async fn server_mode(config: &Config, server: &str, rest: &[String]) -> i32 {
             return 2;
         }
     };
-    match connection.call_tool(&tool, arguments, CALL_TIMEOUT, &cancel).await {
+    match connection
+        .call_tool(&tool, arguments, CALL_TIMEOUT, &cancel)
+        .await
+    {
         Ok(result) => {
             let failed = result.is_error == Some(true);
             match serde_json::to_string_pretty(&result) {

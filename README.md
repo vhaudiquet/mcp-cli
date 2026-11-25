@@ -57,7 +57,7 @@ mcp [--config PATH] <server> <tool> [flags...] [--json JSON|-]
 A bare server invocation and `--list` print the tool catalog as JSON.
 `--help` prints the generated commands. `--json` replaces the whole
 argument object; `-` reads it from stdin. The mapping from schemas to
-flags lives in [`mcp-to-cli`](../mcp-to-cli), which stays a pure
+flags lives in [`mcp-to-cli`](crates/mcp-to-cli), which stays a pure
 library with no I/O.
 
 Exit codes: `0` ok; `2` usage; `3` unknown server; `4` transport; `5`
@@ -66,11 +66,21 @@ timeout.
 
 ## Layout
 
-- `src/protocol.rs`: JSON-RPC and the MCP subset.
-- `src/client.rs`, `src/client/`: stdio and Streamable HTTP.
-- `src/config.rs`: the config file and `${VAR}` expansion.
-- `src/main.rs`: the `mcp` command.
+- `crates/mcp-cli`: the `mcp` binary and its client library.
+  - `src/protocol.rs`: JSON-RPC and the MCP subset.
+  - `src/client.rs`, `src/client/`: stdio and Streamable HTTP.
+  - `src/config.rs`: the config file and `${VAR}` expansion.
+  - `src/main.rs`: the `mcp` command.
+- `crates/mcp-to-cli`: the schema-to-clap mapping, kept in the same
+  workspace.
 
 The client is also a library (`mcp_cli::client`), so a frontend that
 wants to own the process can depend on it instead of reimplementing
 the transport.
+
+## Releases
+
+Tags `v*` build `mcp_<version>_<os>_<arch>.tar.gz` for Linux
+amd64/arm64, macOS amd64/arm64, and Windows amd64, with a
+`checksums.txt`. The rhema installer downloads these assets beside
+`rhema` and `gob`.

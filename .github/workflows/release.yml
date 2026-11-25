@@ -1,0 +1,89 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset: linux_amd64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            asset: linux_arm64
+            cross: true
+          - os: macos-13
+            target: x86_64-apple-darwin
+            asset: darwin_amd64
+          - os: macos-14
+            target: aarch64-apple-darwin
+            asset: darwin_arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset: windows_amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install cross
+        if: matrix.cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.cross }}" = "true" ]; then
+            cross build --release --target "${{ matrix.target }}" -p mcp-cli --bin mcp
+          else
+            cargo build --release --target "${{ matrix.target }}" -p mcp-cli --bin mcp
+          fi
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          case "${{ matrix.target }}" in
+            *windows*)
+              cp "target/${{ matrix.target }}/release/mcp.exe" dist/mcp.exe
+              ;;
+            *)
+              cp "target/${{ matrix.target }}/release/mcp" dist/mcp
+              ;;
+          esac
+          tar -czf "mcp_${version}_${{ matrix.asset }}.tar.gz" -C dist .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: mcp_*.tar.gz
+          if-no-files-found: error
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum *.tar.gz > checksums.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/checksums.txt
+          generate_release_notes: true

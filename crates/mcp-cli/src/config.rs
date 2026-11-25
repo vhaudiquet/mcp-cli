@@ -86,10 +86,7 @@ impl Server {
                     .iter()
                     .map(|(key, value)| Ok((key.clone(), expand(value)?)))
                     .collect::<Result<_, String>>()?;
-                Ok(Launch::Stdio {
-                    command: argv,
-                    env,
-                })
+                Ok(Launch::Stdio { command: argv, env })
             }
             (None, Some(url)) => {
                 let headers = self
@@ -115,8 +112,6 @@ pub struct Config {
     pub servers: BTreeMap<String, Server>,
     /// Why entries or the file were skipped.
     pub notices: Vec<String>,
-    /// The file the config came from.
-    pub path: PathBuf,
 }
 
 impl Config {
@@ -129,7 +124,6 @@ impl Config {
                 return Ok(Self {
                     servers: BTreeMap::new(),
                     notices: vec![format!("no config at {}", path.display())],
-                    path,
                 });
             }
             Err(err) => return Err(format!("reading {}: {err}", path.display())),
@@ -147,11 +141,7 @@ impl Config {
                 Err(err) => notices.push(format!("mcp server `{name}` skipped: {err}")),
             }
         }
-        Ok(Self {
-            servers,
-            notices,
-            path,
-        })
+        Ok(Self { servers, notices })
     }
 
     /// The config path: `--config`, `$MCP_CONFIG`, `./mcp.json`, then
@@ -180,14 +170,28 @@ impl Config {
 fn split(root: &serde_json::Value) -> (Vec<(String, serde_json::Value)>, Vec<String>) {
     let map = match root {
         serde_json::Value::Object(map) => map,
-        _ => return (Vec::new(), vec!["the config root is not an object".to_owned()]),
+        _ => {
+            return (
+                Vec::new(),
+                vec!["the config root is not an object".to_owned()],
+            );
+        }
     };
     for key in ["servers", "mcpServers"] {
         if let Some(serde_json::Value::Object(servers)) = map.get(key) {
-            return (servers.iter().map(|(k, v)| (k.clone(), v.clone())).collect(), Vec::new());
+            return (
+                servers
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect(),
+                Vec::new(),
+            );
         }
     }
-    (map.iter().map(|(k, v)| (k.clone(), v.clone())).collect(), Vec::new())
+    (
+        map.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+        Vec::new(),
+    )
 }
 
 /// Expands `${NAME}` and `$NAME`. An unset variable is an error; this
@@ -213,10 +217,8 @@ fn expand(text: &str) -> Result<String, String> {
                 break;
             }
         }
-        if braced {
-            if chars.next() != Some('}') {
-                return Err(format!("unterminated ${{{name}}} in {text:?}"));
-            }
+        if braced && chars.next() != Some('}') {
+            return Err(format!("unterminated ${{{name}}} in {text:?}"));
         }
         if name.is_empty() {
             if braced {

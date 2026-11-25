@@ -1,0 +1,20 @@
+[package]
+name = "mcp-to-cli"
+description = "JSON Schema tool catalogs to clap commands for MCP servers"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT"
+repository = "https://github.com/vhaudiquet/mcp-cli"
+authors = ["Valentin Haudiquet"]
+
+[dependencies]
+# The builder API only: the derive feature stays for the crates that
+# define their own commands, and `string` lets flag names and help
+# text come from runtime schemas. Default features minus `color`.
+clap = { version = "4.5", default-features = false, features = ["std", "string", "help", "usage", "error-context", "suggestions"] }
+serde_json = "1.0"
+thiserror = "2"
+
+[lints.rust]
+missing_docs = "deny"
