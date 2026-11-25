@@ -1,0 +1,34 @@
+[package]
+name = "mcp-cli"
+description = "A standalone MCP client: configured servers become bash commands"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT"
+repository = "https://git.vhaudiquet.fr/vhaudiquet/mcp-cli"
+authors = ["Valentin Haudiquet"]
+
+[[bin]]
+name = "mcp"
+path = "src/main.rs"
+
+[dependencies]
+# The mapping crate: JSON Schema catalogs to clap commands. Its own
+# repository and release line.
+mcp-to-cli = { path = "../mcp-to-cli" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["process", "io-util", "net", "sync", "time", "rt-multi-thread", "macros"] }
+# Streamable HTTP: the same hyper connector the rhema client uses.
+hyper = { version = "1", default-features = false, features = ["http1", "client"] }
+hyper-util = { version = "0.1", features = ["client", "client-legacy", "http1", "tokio"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "tls12", "aws-lc-rs", "webpki-tokio"] }
+http-body-util = "0.1"
+bytes = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints.rust]
+missing_docs = "deny"
