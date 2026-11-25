@@ -60,6 +60,13 @@ argument object; `-` reads it from stdin. The mapping from schemas to
 flags lives in [`mcp-to-cli`](crates/mcp-to-cli), which stays a pure
 library with no I/O.
 
+Image and audio results are written under `$MCP_MEDIA_DIR` and the
+block is replaced by its path, mime type, and byte count. Without the
+variable the block becomes a text placeholder with the byte count, so
+a base64 blob never floods the shell output. The host sets the
+directory under the session tree; the shell's `see` tool can attach
+the path.
+
 Exit codes: `0` ok; `2` usage; `3` unknown server; `4` transport; `5`
 the server reported failure (`isError` or a JSON-RPC error); `6`
 timeout.
