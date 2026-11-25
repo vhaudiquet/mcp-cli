@@ -166,7 +166,7 @@ fn prompt(config: &Config) -> i32 {
     if lines.is_empty() {
         return 0;
     }
-    println!("MCP servers installed in this sandbox:");
+    println!("MCP servers installed:");
     for line in lines {
         println!("- {line}");
     }
